@@ -82,6 +82,12 @@ class ArticleAdminForm(TranslatableModelForm):
         # Don't allow app_configs to be added here. The correct way to add an
         # apphook-config is to create an apphook on a cms Page.
         self.fields['app_config'].widget.can_add_related = False
+        # Don't allow related articles to be added here.
+        # doesn't makes much sense to add articles from another article other
+        # than save and add another.
+        if ('related' in self.fields and
+                hasattr(self.fields['related'], 'widget')):
+            self.fields['related'].widget.can_add_related = False
 
 
 class ArticleAdmin(
@@ -104,9 +110,11 @@ class ArticleAdmin(
             'fields': (
                 'title',
                 'author',
-                ('publishing_date', 'is_published'),
-                'featured_image',
+                'publishing_date',
+                'is_published',
                 'is_featured',
+                'featured_image',
+                'lead_in',
             )
         }),
         ('Meta Options', {
@@ -121,7 +129,6 @@ class ArticleAdmin(
         ('Advanced Settings', {
             'classes': ('collapse',),
             'fields': (
-                'lead_in',
                 'tags',
                 'categories',
                 'related',
@@ -161,7 +168,8 @@ class NewsBlogConfigAdmin(
         return (
             'app_title', 'permalink_type', 'non_permalink_handling',
             'template_prefix', 'paginate_by', 'pagination_pages_start',
-            'pagination_pages_visible', 'create_authors', 'search_indexed',
-            'config.default_published', )
+            'pagination_pages_visible', 'exclude_featured',
+            'create_authors', 'search_indexed', 'config.default_published',
+        )
 
 admin.site.register(models.NewsBlogConfig, NewsBlogConfigAdmin)

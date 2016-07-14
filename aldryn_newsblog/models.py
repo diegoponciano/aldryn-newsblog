@@ -81,7 +81,7 @@ class Article(TranslatedAutoSlugifyMixin,
     update_search_on_save = getattr(
         settings,
         'ALDRYN_NEWSBLOG_UPDATE_SEARCH_DATA_ON_SAVE',
-        True
+        False
     )
 
     translations = TranslatedFields(
@@ -122,7 +122,7 @@ class Article(TranslatedAutoSlugifyMixin,
                                verbose_name=_('author'))
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_('owner'))
     app_config = AppHookConfigField(NewsBlogConfig,
-                                    verbose_name=_('app. config'))
+                                    verbose_name=_('Apphook configuration'))
     categories = CategoryManyToManyField('aldryn_categories.Category',
                                          verbose_name=_('categories'),
                                          blank=True)
@@ -248,6 +248,21 @@ class PluginEditModeMixin(object):
             request.toolbar.edit_mode)
 
 
+class AdjustableCacheModelMixin(models.Model):
+    # NOTE: This field shouldn't even be displayed in the plugin's change form
+    # if using django CMS < 3.3.0
+    cache_duration = models.PositiveSmallIntegerField(
+        default=0,  # not the most sensible, but consistent with older versions
+        blank=False,
+        help_text=_(
+            "The maximum duration (in seconds) that this plugin's content "
+            "should be cached.")
+    )
+
+    class Meta:
+        abstract = True
+
+
 class NewsBlogCMSPlugin(CMSPlugin):
     """AppHookConfig aware abstract CMSPlugin class for Aldryn Newsblog"""
     # avoid reverse relation name clashes by not adding a related_name
@@ -255,7 +270,7 @@ class NewsBlogCMSPlugin(CMSPlugin):
     cmsplugin_ptr = models.OneToOneField(
         CMSPlugin, related_name='+', parent_link=True)
 
-    app_config = models.ForeignKey(NewsBlogConfig)
+    app_config = models.ForeignKey(NewsBlogConfig, verbose_name=_('Apphook configuration'))
 
     class Meta:
         abstract = True
@@ -265,7 +280,8 @@ class NewsBlogCMSPlugin(CMSPlugin):
 
 
 @python_2_unicode_compatible
-class NewsBlogArchivePlugin(PluginEditModeMixin, NewsBlogCMSPlugin):
+class NewsBlogArchivePlugin(PluginEditModeMixin, AdjustableCacheModelMixin,
+                            NewsBlogCMSPlugin):
     # NOTE: the PluginEditModeMixin is eventually used in the cmsplugin, not
     # here in the model.
     def __str__(self):
@@ -382,6 +398,8 @@ class NewsBlogFeaturedArticlesPlugin(PluginEditModeMixin, NewsBlogCMSPlugin):
             queryset = queryset.published()
         languages = get_valid_languages_from_request(
             self.app_config.namespace, request)
+        if self.language not in languages:
+            return queryset.none()
         queryset = queryset.translated(*languages).filter(
             app_config=self.app_config,
             is_featured=True)
@@ -401,10 +419,19 @@ class NewsBlogFeaturedArticlesPlugin(PluginEditModeMixin, NewsBlogCMSPlugin):
 
 
 @python_2_unicode_compatible
-class NewsBlogLatestArticlesPlugin(PluginEditModeMixin, NewsBlogCMSPlugin):
+class NewsBlogLatestArticlesPlugin(PluginEditModeMixin,
+                                   AdjustableCacheModelMixin,
+                                   NewsBlogCMSPlugin):
     latest_articles = models.IntegerField(
         default=5,
         help_text=_('The maximum number of latest articles to display.')
+    )
+    exclude_featured = models.PositiveSmallIntegerField(
+        default=0,
+        blank=True,
+        help_text=_(
+            'The maximum number of featured articles to exclude from display. '
+            'E.g. for uses in combination with featured articles plugin.')
     )
 
     def get_articles(self, request):
@@ -413,21 +440,33 @@ class NewsBlogLatestArticlesPlugin(PluginEditModeMixin, NewsBlogCMSPlugin):
         latest_articles.
         """
         queryset = Article.objects
+        featured_qs = Article.objects.all().filter(is_featured=True)
         if not self.get_edit_mode(request):
             queryset = queryset.published()
+            featured_qs = featured_qs.published()
         languages = get_valid_languages_from_request(
             self.app_config.namespace, request)
+        if self.language not in languages:
+            return queryset.none()
         queryset = queryset.translated(*languages).filter(
             app_config=self.app_config)
+        featured_qs = featured_qs.translated(*languages).filter(
+            app_config=self.app_config)
+        exclude_featured = featured_qs.values_list(
+            'pk', flat=True)[:self.exclude_featured]
+        queryset = queryset.exclude(pk__in=list(exclude_featured))
         return queryset[:self.latest_articles]
 
     def __str__(self):
-        return ugettext('%s latest articles: %s') % (
-            self.app_config.get_app_title(), self.latest_articles, )
+        return ugettext('%(app_title)s latest articles: %(latest_articles)s') % {
+            'app_title': self.app_config.get_app_title(),
+            'latest_articles': self.latest_articles,
+        }
 
 
 @python_2_unicode_compatible
-class NewsBlogRelatedPlugin(PluginEditModeMixin, CMSPlugin):
+class NewsBlogRelatedPlugin(PluginEditModeMixin, AdjustableCacheModelMixin,
+                            CMSPlugin):
     # NOTE: This one does NOT subclass NewsBlogCMSPlugin. This is because this
     # plugin can really only be placed on the article detail view in an apphook.
     cmsplugin_ptr = models.OneToOneField(
@@ -439,6 +478,8 @@ class NewsBlogRelatedPlugin(PluginEditModeMixin, CMSPlugin):
         """
         languages = get_valid_languages_from_request(
             article.app_config.namespace, request)
+        if self.language not in languages:
+            return Article.objects.none()
         qs = article.related.translated(*languages)
         if not self.get_edit_mode(request):
             qs = qs.published()

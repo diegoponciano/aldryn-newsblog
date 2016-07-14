@@ -73,7 +73,16 @@ class NewsBlogConfig(TranslatableModel, AppHookConfig):
         help_text=_('When grouping page numbers, this determines how many '
                     'pages are visible on each side of the active page.'),
     )
-
+    exclude_featured = models.PositiveSmallIntegerField(
+        _('Excluded featured articles count'),
+        blank=True,
+        default=0,
+        help_text=_(
+            'If you are using the Featured Articles plugin on the article list '
+            'view, you may prefer to exclude featured articles from the '
+            'article list itself to avoid duplicates. To do this, enter the '
+            'same number here as in your Featured Articles plugin.'),
+    )
     template_prefix = models.CharField(
         max_length=20,
         null=True, blank=True,
@@ -133,8 +142,8 @@ class NewsBlogConfig(TranslatableModel, AppHookConfig):
         return getattr(self, 'app_title', _('untitled'))
 
     class Meta:
-        verbose_name = 'config'
-        verbose_name_plural = 'configs'
+        verbose_name = 'application configuration'
+        verbose_name_plural = 'application configurations'
 
 
 class NewsBlogConfigForm(AppDataForm):

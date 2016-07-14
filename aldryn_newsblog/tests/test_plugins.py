@@ -34,6 +34,25 @@ class TestAppConfigPluginsBase(NewsBlogTestCase):
             namespace=self.rand_str())
 
 
+class TestPluginLanguageHelperMixin(object):
+    def _test_plugin_languages_with_article(self, article):
+        """Set up conditions to test plugin languages edge cases"""
+        # Add 'de' translation to one of the articles
+        title_de = 'title-de'
+        title_en = article.title
+        article.set_current_language('de')
+        article.title = title_de
+        article.save()
+
+        # Unpublish page with newsblog apphook
+        self.page.unpublish('en')
+        cache.clear()
+        response = self.client.get(self.plugin_page.get_absolute_url())
+
+        # This article should not be visible on 'en' page/plugin
+        self.assertNotContains(response, title_en)
+
+
 class TestArchivePlugin(TestAppConfigPluginsBase):
     plugin_to_test = 'NewsBlogArchivePlugin'
 
@@ -114,17 +133,16 @@ class TestAuthorsPlugin(TestAppConfigPluginsBase):
 
         response = self.client.get(self.plugin_page.get_absolute_url())
         response_content = force_text(response.content)
-        pattern = '<p>\s*<a href="{url}">\s*</a>\s*</p>'
-        pattern += '\s*<p>{num}</p>'
+        # This pattern tries to accommodate all the templates from all the
+        # versions of this package.
+        pattern = '<a href="{url}">\s*</a>'
         author1_pattern = pattern.format(
-            num=3,
             url=reverse(
                 '{0}:article-list-by-author'.format(self.app_config.namespace),
                 args=[author1.slug]
             )
         )
         author2_pattern = pattern.format(
-            num=5,
             url=reverse(
                 '{0}:article-list-by-author'.format(self.app_config.namespace),
                 args=[author2.slug]
@@ -169,14 +187,18 @@ class TestCategoriesPlugin(TestAppConfigPluginsBase):
 
         response = self.client.get(self.plugin_page.get_absolute_url())
         response_content = force_text(response.content)
-        pattern = '<a href=[^>]*>{name}</a>\s*<span[^>]*>{num}</span>'
+        # We use two different patterns in alternation because different
+        # versions of newsblog have different templates
+        pattern = '<span[^>]*>{num}</span>\s*<a href=[^>]*>{name}</a>'
+        pattern += '|<a href=[^>]*>{name}</a>\s*<span[^>]*>{num}</span>'
         needle1 = pattern.format(num=3, name=self.category1.name)
         needle2 = pattern.format(num=5, name=self.category2.name)
         self.assertRegexpMatches(response_content, needle1)
         self.assertRegexpMatches(response_content, needle2)
 
 
-class TestFeaturedArticlesPlugin(TestAppConfigPluginsBase):
+class TestFeaturedArticlesPlugin(TestPluginLanguageHelperMixin,
+                                 TestAppConfigPluginsBase):
     plugin_to_test = 'NewsBlogFeaturedArticlesPlugin'
     plugin_params = {
         "article_count": 5,
@@ -221,8 +243,13 @@ class TestFeaturedArticlesPlugin(TestAppConfigPluginsBase):
         for article in articles:
             self.assertNotContains(response, article.title)
 
+    def test_featured_articles_plugin_language(self):
+        article = self.create_article(is_featured=True)
+        self._test_plugin_languages_with_article(article)
 
-class TestLatestArticlesPlugin(TestAppConfigPluginsBase):
+
+class TestLatestArticlesPlugin(TestPluginLanguageHelperMixin,
+                               TestAppConfigPluginsBase):
     plugin_to_test = 'NewsBlogLatestArticlesPlugin'
     plugin_params = {
         "latest_articles": 7,
@@ -239,6 +266,33 @@ class TestLatestArticlesPlugin(TestAppConfigPluginsBase):
         for article in another_articles:
             self.assertNotContains(response, article.title)
 
+    def _test_latest_articles_plugin_exclude_count(self, exclude_count=0):
+        self.plugin.exclude_featured = exclude_count
+        self.plugin.save()
+        self.plugin_page.publish(self.plugin.language)
+        articles = []
+        featured_articles = []
+        for idx in range(7):
+            if idx % 2:
+                featured_articles.append(self.create_article(is_featured=True))
+            else:
+                articles.append(self.create_article())
+        response = self.client.get(self.plugin_page.get_absolute_url())
+        for article in articles:
+            self.assertContains(response, article.title)
+        # check that configured among of featured articles is excluded
+        for featured_article in featured_articles[:exclude_count]:
+            self.assertNotContains(response, featured_article.title)
+        # ensure that other articles featured articles are present
+        for featured_article in featured_articles[exclude_count:]:
+            self.assertContains(response, featured_article.title)
+
+    def test_latest_articles_plugin_exclude_featured(self):
+        self._test_latest_articles_plugin_exclude_count(3)
+
+    def test_latest_articles_plugin_no_excluded_featured(self):
+        self._test_latest_articles_plugin_exclude_count()
+
     def test_latest_articles_plugin_unpublished_app_page(self):
         with override('de'):
             articles = [self.create_article() for _ in range(3)]
@@ -252,6 +306,10 @@ class TestLatestArticlesPlugin(TestAppConfigPluginsBase):
         response = self.client.get(self.plugin_page.get_absolute_url())
         for article in articles:
             self.assertNotContains(response, article.title)
+
+    def test_latest_articles_plugin_language(self):
+        article = self.create_article()
+        self._test_plugin_languages_with_article(article)
 
 
 class TestPrefixedLatestArticlesPlugin(TestAppConfigPluginsBase):
@@ -270,7 +328,8 @@ class TestPrefixedLatestArticlesPlugin(TestAppConfigPluginsBase):
         self.assertContains(response, 'This is dummy latest articles plugin')
 
 
-class TestRelatedArticlesPlugin(NewsBlogTestCase):
+class TestRelatedArticlesPlugin(TestPluginLanguageHelperMixin,
+                                NewsBlogTestCase):
 
     def test_related_articles_plugin(self):
         main_article = self.create_article(app_config=self.app_config)
@@ -317,6 +376,12 @@ class TestRelatedArticlesPlugin(NewsBlogTestCase):
         response = self.client.get(main_article.get_absolute_url())
         for article in another_language_articles:
             self.assertNotContains(response, article.title)
+
+    def test_latest_articles_plugin_language(self):
+        main_article, related_article = [
+            self.create_article() for _ in range(2)]
+        main_article.related.add(related_article)
+        self._test_plugin_languages_with_article(related_article)
 
 
 class TestTagsPlugin(TestAppConfigPluginsBase):

@@ -7,12 +7,12 @@ cms/django
 *.DS_Store
 *.svn
 .*
+!.tx
 !.travis.yml
 !.coveragerc
 !.codeclimate.yml
 !.editorconfig
-!.jshintrc
-!.jscsrc
+!.eslintrc.js
 *.xml
 /*env*/
 *.sqlite

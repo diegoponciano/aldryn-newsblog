@@ -65,7 +65,12 @@ class PreviewModeMixin(EditModeMixin):
     """
     def get_queryset(self):
         qs = super(PreviewModeMixin, self).get_queryset()
-        if not self.edit_mode:
+        # check if user can see unpublished items. this will allow to switch
+        # to edit mode instead of 404 on article detail page. CMS handles the
+        # permissions.
+        user = self.request.user
+        user_can_edit = user.is_staff or user.is_superuser
+        if not (self.edit_mode or user_can_edit):
             qs = qs.published()
         language = translation.get_language()
         qs = qs.active_translations(language).namespace(self.namespace)
@@ -227,6 +232,19 @@ class ArticleListBase(AppConfigMixin, AppHookCheckMixin, TemplatePrefixMixin,
 class ArticleList(ArticleListBase):
     """A complete list of articles."""
     show_header = True
+
+    def get_queryset(self):
+        qs = super(ArticleList, self).get_queryset()
+        # exclude featured articles from queryset, to allow featured article
+        # plugin on the list view page without duplicate entries in page qs.
+        exclude_count = self.config.exclude_featured
+        if exclude_count:
+            featured_qs = Article.objects.all().filter(is_featured=True)
+            if not self.edit_mode:
+                featured_qs = featured_qs.published()
+            exclude_featured = featured_qs[:exclude_count].values_list('pk')
+            qs = qs.exclude(pk__in=exclude_featured)
+        return qs
 
 
 class ArticleSearchResultsList(ArticleListBase):
