@@ -1,6 +1,23 @@
 CHANGELOG
 =========
 
+1.3.0 (2016-09-05)
+------------------
+
+* Fixed related_name inconsistency with django CMS 3.3.1
+* Dropped support for djangoCMS < 3.2
+* Introduced support for djangoCMS 3.4.0
+
+
+1.2.4 (2016-07-14)
+------------------
+
+* Relaxed sortedm2m version range
+* Updated translation setup for transifex
+* Updated translation strings
+* Fixed aldryn_translation_tools not being added to INSTALLED_APPS on Aldryn
+
+
 1.2.3 (2016-06-28)
 ------------------
 

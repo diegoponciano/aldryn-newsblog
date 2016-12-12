@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Aldryn News & Blog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-06-28 20:56-0400\n"
+"POT-Creation-Date: 2016-08-23 15:51-0400\n"
 "PO-Revision-Date: 2016-06-21 08:46+0000\n"
 "Last-Translator: Mikhail Kolesnik <mike@openbunker.org>\n"
 "Language-Team: English (http://www.transifex.com/divio/aldryn-newsblog/"
@@ -126,10 +126,6 @@ msgstr "All"
 msgid "by"
 msgstr "by"
 
-#: cms_app.py:15
-msgid "NewsBlog"
-msgstr "NewsBlog"
-
 #: cms_appconfig.py:19
 msgid "the-eagle-has-landed/"
 msgstr "the-eagle-has-landed/"
@@ -204,7 +200,6 @@ msgstr ""
 
 #: cms_appconfig.py:66
 #, fuzzy
-#| msgid "When paginating list views, how many articles per page?"
 msgid ""
 "When paginating list views, after how many pages should we start grouping "
 "the page numbers."
@@ -212,7 +207,6 @@ msgstr "When paginating list views, how many articles per page?"
 
 #: cms_appconfig.py:70
 #, fuzzy
-#| msgid "Paginate size"
 msgid "Pagination pages visible"
 msgstr "Paginate size"
 
@@ -224,7 +218,6 @@ msgstr ""
 
 #: cms_appconfig.py:77
 #, fuzzy
-#| msgid "featured articles: %(count)s"
 msgid "Excluded featured articles count"
 msgstr "featured articles: %(count)s"
 
@@ -264,6 +257,10 @@ msgstr "untitled"
 msgid "Post published by default"
 msgstr "Post published by default"
 
+#: cms_apps.py:15
+msgid "NewsBlog"
+msgstr "NewsBlog"
+
 #: cms_plugins.py:66
 msgid "Archive"
 msgstr "Archive"
@@ -296,23 +293,23 @@ msgstr "Related Articles"
 msgid "Tags"
 msgstr "Tags"
 
-#: cms_toolbar.py:92
+#: cms_toolbars.py:92
 msgid "Configure addon"
 msgstr "Configure addon"
 
-#: cms_toolbar.py:103
+#: cms_toolbars.py:103
 msgid "Article list"
 msgstr "Article list"
 
-#: cms_toolbar.py:110
+#: cms_toolbars.py:110
 msgid "Add new article"
 msgstr "Add new article"
 
-#: cms_toolbar.py:118
+#: cms_toolbars.py:118
 msgid "Edit this article"
 msgstr "Edit this article"
 
-#: cms_toolbar.py:126
+#: cms_toolbars.py:126
 msgid "Delete this article"
 msgstr "Delete this article"
 
@@ -336,9 +333,10 @@ msgstr "New news/blog article"
 msgid "Create a new news/blog article."
 msgstr "Create a new news/blog article."
 
-#: feeds.py:36
-#, python-brace-format
-msgid "Articles on {0}"
+#: feeds.py:37
+#, fuzzy, python-format
+#| msgid "Articles on {0}"
+msgid "Articles on %(site_name)s"
 msgstr "Articles on {0}"
 
 #: menu.py:20
@@ -475,7 +473,6 @@ msgstr ""
 
 #: models.py:461
 #, fuzzy, python-format
-#| msgid "%s latest articles: %s"
 msgid "%(app_title)s latest articles: %(latest_articles)s"
 msgstr "%s latest articles: %s"
 
